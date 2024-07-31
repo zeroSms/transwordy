@@ -22,11 +22,13 @@
             <option value="en">英語</option>
           </select>
         </div>
+        <!-- <div class="translation-result" v-if="translation"> -->
         <div class="translation-result" v-if="translation">
           <div v-for="(sentence, index) in translation.sentences" :key="index">
             {{ sentence.ja }}
           </div>
         </div>
+        <div class="translation-result" v-else></div>
       </div>
     </div>
     <div class="idiom-word-section" v-if="translation">
@@ -41,6 +43,8 @@
         </div>
       </div>
     </div>
+    <div class="idiom-word-section" v-else><h3>重要な表現とワード</h3></div>
+
   </div>
 </template>
 
