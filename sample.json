@@ -1,0 +1,20 @@
+{
+    "sentences": [
+      {
+        "sentence": "The exam was a piece of cake.",
+        "ja": "その試験はとても簡単でした。",
+        "idiom/word": {
+          "a piece of cake": {"part of speech": "idiom", "ja": "とても簡単なこと"},
+          "exam": {"part of speech": "noun", "ja": "試験"}
+        }
+      },
+      {
+        "sentence": "I finished it in no time.",
+        "ja": "すぐに終わらせました。",
+        "idiom/word": {
+          "in no time": {"part of speech": "idiom", "ja": "すぐに"},
+          "finish": {"part of speech": "", "ja": "終わらせる"}
+        }
+      }
+    ]
+  }
