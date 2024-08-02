@@ -1,0 +1,1 @@
+.\generate_tree.ps1 -rootPath "C:\Users\e14520\Git\transwordy" -outputFile "folder_structure.txt"

@@ -1,16 +1,23 @@
 <template>
   <div id="app">
-    <TranslateComponent />
+    <router-link to="/login">ユーザー登録</router-link>
+    <router-view></router-view>
   </div>
 </template>
 
 <script>
-import TranslateComponent from './components/TranslateComponent.vue';
-
 export default {
-  name: 'App',
-  components: {
-    TranslateComponent
-  }
+  name: 'App'
 };
 </script>
+
+<style>
+#app {
+  font-family: Avenir, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-align: center;
+  color: #2c3e50;
+  margin-top: 60px;
+}
+</style>

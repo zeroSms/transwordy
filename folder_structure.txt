@@ -1,0 +1,36 @@
+transwordy
++-- .env
++-- .gitignore
++-- babel.config.js
++-- folder_structure.txt
++-- generate_tree.ps1
++-- jsconfig.json
++-- package.json
++-- package-lock.json
++-- README.md
++-- sample.json
++-- sample.txt
++-- vue.config.js
++-- backend
+|   +-- package.json
+|   +-- package-lock.json
+|   +-- server.js
+|   +-- data
+|   |   +-- idioms_words.json
+|   |   +-- sentence_words.json
+|   |   +-- sentences.json
+|   |   +-- user_progress.json
+|   |   +-- users.json
++-- public
+|   +-- favicon.ico
+|   +-- index.html
++-- src
+    +-- App.vue
+    +-- main.js
+    +-- assets
+    |   +-- logo.png
+    +-- components
+        +-- HelloWorld.vue
+        +-- TranslateComponent.vue
+        +-- TranslationApp.css
+        +-- TranslationApp.js
