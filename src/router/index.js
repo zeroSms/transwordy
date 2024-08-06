@@ -1,14 +1,25 @@
 // src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router';
-import UserLogin from '../components/UserLogin.vue'; // 修正済み
+import UserRegistration from '../components/UserRegistration.vue'; // ユーザー登録画面
+import UserLogin from '../components/UserLogin.vue'; // ログイン画面
+import TranslationPage from '../components/TranslationPage.vue'; // 翻訳ページ（仮）
 
 const routes = [
   {
     path: '/',
+    name: 'UserRegistration',
+    component: UserRegistration
+  },
+  {
+    path: '/login',
     name: 'UserLogin',
     component: UserLogin
+  },
+  {
+    path: '/translation',
+    name: 'TranslationPage',
+    component: TranslationPage // 翻訳ページのコンポーネント
   }
-  // 他のルートもここに追加
 ];
 
 const router = createRouter({

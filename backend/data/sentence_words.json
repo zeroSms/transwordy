@@ -1,0 +1,123 @@
+[
+  {
+    "sentenceId": 1,
+    "idiomWord": {
+      "text": "under the weather",
+      "type": "idiom",
+      "ja": "体調が悪い",
+      "sentenceId": 1
+    },
+    "created_at": "2024-08-06T03:29:06.859Z",
+    "updated_at": "2024-08-06T03:29:06.859Z"
+  },
+  {
+    "sentenceId": 1,
+    "idiomWord": {
+      "text": "decide",
+      "type": "verb",
+      "ja": "決める",
+      "sentenceId": 1
+    },
+    "created_at": "2024-08-06T03:29:06.859Z",
+    "updated_at": "2024-08-06T03:29:06.859Z"
+  },
+  {
+    "sentenceId": 1,
+    "idiomWord": {
+      "text": "sick day",
+      "type": "noun",
+      "ja": "病気休暇",
+      "sentenceId": 1
+    },
+    "created_at": "2024-08-06T03:29:06.859Z",
+    "updated_at": "2024-08-06T03:29:06.859Z"
+  },
+  {
+    "sentenceId": 1,
+    "idiomWord": {
+      "text": "work",
+      "type": "noun",
+      "ja": "仕事",
+      "sentenceId": 1
+    },
+    "created_at": "2024-08-06T03:29:06.859Z",
+    "updated_at": "2024-08-06T03:29:06.859Z"
+  },
+  {
+    "sentenceId": 2,
+    "idiomWord": {
+      "text": "stay",
+      "type": "verb",
+      "ja": "いる",
+      "sentenceId": 2
+    },
+    "created_at": "2024-08-06T03:29:06.859Z",
+    "updated_at": "2024-08-06T03:29:06.859Z"
+  },
+  {
+    "sentenceId": 2,
+    "idiomWord": {
+      "text": "medicine",
+      "type": "noun",
+      "ja": "薬",
+      "sentenceId": 2
+    },
+    "created_at": "2024-08-06T03:29:06.859Z",
+    "updated_at": "2024-08-06T03:29:06.859Z"
+  },
+  {
+    "sentenceId": 2,
+    "idiomWord": {
+      "text": "rest",
+      "type": "verb",
+      "ja": "休む",
+      "sentenceId": 2
+    },
+    "created_at": "2024-08-06T03:29:06.859Z",
+    "updated_at": "2024-08-06T03:29:06.859Z"
+  },
+  {
+    "sentenceId": 2,
+    "idiomWord": {
+      "text": "hope",
+      "type": "verb",
+      "ja": "願う",
+      "sentenceId": 2
+    },
+    "created_at": "2024-08-06T03:29:06.859Z",
+    "updated_at": "2024-08-06T03:29:06.859Z"
+  },
+  {
+    "sentenceId": 2,
+    "idiomWord": {
+      "text": "better shape",
+      "type": "idiom",
+      "ja": "より良い状態",
+      "sentenceId": 2
+    },
+    "created_at": "2024-08-06T03:29:06.859Z",
+    "updated_at": "2024-08-06T03:29:06.859Z"
+  },
+  {
+    "sentenceId": 2,
+    "idiomWord": {
+      "text": "TOEIC test",
+      "type": "noun",
+      "ja": "TOEICテスト",
+      "sentenceId": 2
+    },
+    "created_at": "2024-08-06T03:29:06.859Z",
+    "updated_at": "2024-08-06T03:29:06.859Z"
+  },
+  {
+    "sentenceId": 2,
+    "idiomWord": {
+      "text": "next week",
+      "type": "noun",
+      "ja": "来週",
+      "sentenceId": 2
+    },
+    "created_at": "2024-08-06T03:29:06.859Z",
+    "updated_at": "2024-08-06T03:29:06.859Z"
+  }
+]
