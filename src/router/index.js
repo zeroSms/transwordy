@@ -6,7 +6,7 @@ import TranslationPage from '../components/TranslationPage.vue'; // 翻訳ペー
 
 const routes = [
   {
-    path: '/',
+    path: '/registration',
     name: 'UserRegistration',
     component: UserRegistration
   },

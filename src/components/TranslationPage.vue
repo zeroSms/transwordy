@@ -8,11 +8,7 @@
             <option value="ja">日本語</option>
           </select>
         </div>
-        <textarea
-          v-model="text"
-          placeholder="テキストを入力または貼り付け"
-          @input="autoTranslate"
-        ></textarea>
+        <textarea v-model="text" placeholder="テキストを入力または貼り付け" @input="autoTranslate"></textarea>
         <div class="word-count">{{ wordCount }} 文字</div>
       </div>
       <div class="output-area">
@@ -45,7 +41,9 @@
         </div>
       </div>
     </div>
-    <div class="idiom-word-section" v-else><h3>重要な表現とワード</h3></div>
+    <div class="idiom-word-section" v-else>
+      <h3>重要な表現とワード</h3>
+    </div>
   </div>
 </template>
 
@@ -85,7 +83,8 @@ h1 {
   margin-bottom: 20px;
 }
 
-.input-area, .output-area {
+.input-area,
+.output-area {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -95,7 +94,8 @@ h1 {
   margin-bottom: 10px;
 }
 
-textarea, .translation-result {
+textarea,
+.translation-result {
   background-color: #fff;
   width: 100%;
   height: 300px;
@@ -107,7 +107,8 @@ textarea, .translation-result {
 }
 
 .translation-result {
-  text-align: left; /* 追加 */
+  text-align: left;
+  /* 追加 */
 }
 
 .word-count {
@@ -116,6 +117,7 @@ textarea, .translation-result {
   color: #666;
   margin-top: 5px;
 }
+
 /* 重要な表現とワードセクション */
 .idiom-word-section {
   background-color: #fff;
@@ -128,7 +130,8 @@ textarea, .translation-result {
 /* センテンスタイトル */
 .idiom-word-section h3 {
   font-size: 1.2em;
-  margin: 10px 0; /* 上下の余白をやや小さく設定 */
+  margin: 10px 0;
+  /* 上下の余白をやや小さく設定 */
   color: #333;
 }
 
@@ -161,7 +164,8 @@ textarea, .translation-result {
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
-  flex: 1 1 200px; /* 横幅が200pxになるように設定 */
+  flex: 1 1 200px;
+  /* 横幅が200pxになるように設定 */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -290,83 +294,121 @@ export default {
 
       const prompt = `**英文**: ${this.text}`;
 
-try {
-  const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-    model: "gpt-4o-mini-2024-07-18",
-    messages: [
-      { role: "system", content: systemInstructions },
-      { role: "user", content: prompt }
-    ],
-    max_tokens: 5616,
-    temperature: 0,
-    top_p: 1,
-    frequency_penalty: 0,
-    presence_penalty: 0
-  }, {
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.VUE_APP_OPENAI_API_KEY}`
-    }
-  });
+      try {
 
-  console.log("API Response:", response.data);
+        const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+          model: "gpt-4o-mini-2024-07-18",
+          messages: [
+            { role: "system", content: systemInstructions },
+            { role: "user", content: prompt }
+          ],
+          max_tokens: 5616,
+          temperature: 0,
+          top_p: 1,
+          frequency_penalty: 0,
+          presence_penalty: 0
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.VUE_APP_OPENAI_API_KEY}`
+          }
+        });
 
-  try {
-      const rawData = JSON.parse(response.data.choices[0].message.content);
-      const { sentences } = rawData;
+        console.log("API Response:", response.data);
+        try {
+          const rawData = JSON.parse(response.data.choices[0].message.content);
+          const { sentences } = rawData;
 
-      // idiomsWords と sentenceWords を生成
-      let idiomsWords = [];
-      let sentenceWords = [];
-      sentences.forEach((sentenceObj, index) => {
-        let idiomWords = Object.keys(sentenceObj['idiom/word']).map(key => ({
-          text: key,
-          type: sentenceObj['idiom/word'][key].type,
-          ja: sentenceObj['idiom/word'][key].ja,
-          sentenceId: index + 1 // インデックスに基づく ID
-        }));
-        idiomsWords = idiomsWords.concat(idiomWords);
+          // idiomsWords と sentenceWords を生成
+          let idiomsWords = [];
+          let sentencesList = [];
+          let sentenceWords = [];
 
-        let sentenceWord = idiomWords.map(iw => ({
-          sentenceId: index + 1,
-          idiomWord: iw
-        }));
-        sentenceWords = sentenceWords.concat(sentenceWord);
-      });
-      console.log("Generated idiomsWords:", idiomsWords);
-console.log("Generated sentenceWords:", sentenceWords);
+          // ユニークなID生成のためのカウンタ
+          let idiomWordId = 1;
+          let sentenceId = 1;
 
+          sentences.forEach((sentenceObj) => {
+            if (sentenceObj['idiom/word'] && typeof sentenceObj['idiom/word'] === 'object') {
+              let now = new Date().toISOString(); // 現在の日時を取得
 
-      // 新しい translation オブジェクト
-      this.translation = {
-        idiomsWords,
-        sentences,
-        sentenceWords
-      };
-      await this.saveTranslationData(this.translation);
-    } catch (parseError) {
-      console.error("Error parsing translation result:", parseError);
-      this.translation = response.data.choices[0].message.content;
-    }
+              // idiomsWords の生成
+              let idiomWords = Object.keys(sentenceObj['idiom/word']).map(key => ({
+                id: idiomWordId++, // ユニークなIDを生成
+                text: key,
+                type: sentenceObj['idiom/word'][key].type,
+                pos: sentenceObj['idiom/word'][key].pos, // pos フィールドが必要な場合
+                meaning_ja: sentenceObj['idiom/word'][key].ja,
+                created_at: now,
+                updated_at: now
+              }));
+              idiomsWords = idiomsWords.concat(idiomWords);
 
-  } catch (error) {
-    console.error("Error during translation:", error);
-  }
-},
-async saveTranslationData(translation) {
-  try {
-    await axios.post('http://localhost:3000/api/save-translation', {
-      idiomsWords: translation.idiomsWords || [], // デフォルト値を設定
-      sentences: translation.sentences || [],
-      sentenceWords: translation.sentenceWords || []
-    });
-    console.log('Translation data saved successfully');
-  } catch (error) {
-    console.error('Error saving translation data:', error);
-  }
-},
+              // sentencesList の生成
+              let sentenceEntry = {
+                id: sentenceId++, // ユニークなIDを生成
+                text: sentenceObj.sentence, // 元のデータから取得
+                translation_ja: sentenceObj.ja, // 日本語訳
+                created_at: now,
+                updated_at: now
+              };
+              sentencesList.push(sentenceEntry);
+
+              // sentenceWords の生成
+              let sentenceWordEntries = idiomWords.map(iw => ({
+                id: idiomWordId++, // ユニークなIDを生成
+                sentence_id: sentenceEntry.id,
+                idiom_word_id: iw.id,
+                created_at: now,
+                updated_at: now
+              }));
+              sentenceWords = sentenceWords.concat(sentenceWordEntries);
+            } else {
+              console.warn('Invalid idiom/word format in sentence:', sentenceObj);
+            }
+          });
+
+          console.log("Generated idiomsWords:", idiomsWords);
+          console.log("Generated sentencesList:", sentencesList);
+          console.log("Generated sentenceWords:", sentenceWords);
+
+          // 新しい translation オブジェクト
+          this.translation = {
+            idiomsWords,
+            sentences: sentencesList,
+            sentenceWords
+          };
+
+          await this.saveTranslationData(this.translation);
+        } catch (parseError) {
+          console.error("Error parsing translation result:", parseError);
+          this.translation = { error: 'データのパースに失敗しました', originalContent: response.data.choices[0].message.content };
+        }
+
+      } catch (error) {
+        console.error("Error during translation:", error);
+      }
+    },
+    async saveTranslationData(translation) {
+      console.log("Saving translation data:", translation);
+      try {
+        const response = await axios.post('http://localhost:3000/api/save-translation', translation, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        console.log('Translation data saved successfully:', response.data);
+      } catch (error) {
+        // 詳細なエラーメッセージを表示
+        if (error.response) {
+          console.error('Error saving translation data:', error.response.data);
+        } else {
+          console.error('Error saving translation data:', error.message);
+        }
+      }
+    },
     autoTranslate() {
-      if (this.text.length > 0) {
+      if (this.text.trim().length > 0) {
         this.translateText();
       } else {
         this.translation = null;

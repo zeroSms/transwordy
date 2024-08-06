@@ -18,7 +18,6 @@
 </template>
 
 <script>
-
 export default {
   name: 'UserRegistration',
   data() {
