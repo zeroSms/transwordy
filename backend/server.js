@@ -5,6 +5,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const csv = require('csv-parser');
+const { stringify } = require('csv-stringify');
 
 // Expressアプリケーションを作成
 const app = express();
@@ -20,11 +21,12 @@ app.use(cors());
 // JSONデータファイルへのパス
 const dataPath = path.join(__dirname, 'data');
 
-// ファイルからデータを読み込むヘルパー関数
-const readData = (fileName) => {
+// 既存のデータを読み込む関数
+const readCsvData = (filePath) => {
   return new Promise((resolve, reject) => {
     const results = [];
-    fs.createReadStream(path.join(dataPath, fileName))
+    // ファイルパスの組み立て
+    fs.createReadStream(filePath)
       .pipe(csv())
       .on('data', (data) => results.push(data))
       .on('end', () => resolve(results))
@@ -34,32 +36,35 @@ const readData = (fileName) => {
       });
   });
 };
-// データをCSV形式でファイルに書き込む関数
-const { stringify } = require('csv-stringify');
-function writeCsvData(filename, data, headers) {
+
+// CSVファイルにデータを追記する関数
+async function writeCsvData(filename, newData, headers) {
   const filePath = path.join(__dirname, 'data', filename);
-  stringify(data, { header: true, columns: headers }, (err, output) => {
-    if (err) {
-      console.error(`Error writing CSV file ${filename}:`, err);
-      throw new Error('データの書き込みに失敗しました');
+
+  try {
+    let existingData = [];
+    if (fs.existsSync(filePath)) {
+      // 既存のデータがある場合は読み込む
+      existingData = await readCsvData(filePath);
     }
-    fs.writeFileSync(filePath, output);
-  });
+
+    // 既存のデータに新しいデータを追加
+    const updatedData = [...existingData, ...newData];
+
+    // CSVファイルにデータを書き込む
+    stringify(updatedData, { header: true, columns: headers }, (err, output) => {
+      if (err) {
+        console.error(`Error writing CSV file ${filename}:`, err);
+        throw new Error('データの書き込みに失敗しました');
+      }
+      fs.writeFileSync(filePath, output);
+    });
+  } catch (err) {
+    console.error(`Error processing CSV file ${filename}:`, err);
+    throw new Error('データの処理に失敗しました');
+  }
 }
 
-const readCsvData = (fileName) => {
-  return new Promise((resolve, reject) => {
-    const results = [];
-    fs.createReadStream(path.join(dataPath, fileName))
-      .pipe(csv())
-      .on('data', (data) => results.push(data))
-      .on('end', () => resolve(results))
-      .on('error', (err) => {
-        console.error(`Error reading CSV file ${fileName}:`, err);
-        reject(new Error('データの読み込みに失敗しました'));
-      });
-  });
-};
 
 const bcrypt = require('bcrypt');
 const saltRounds = 10; // ハッシュ化の強度
@@ -188,12 +193,10 @@ app.get('/api/user_progress', async (req, res) => {
 // 翻訳データ保存エンドポイント
 app.post('/api/save-translation', async (req, res) => {
   try {
-    // console.log('Received data:', req.body); // デバッグ用ログ
-
     const { idiomsWords, sentences, sentenceWords } = req.body;
-    console.log('Received idiomsWords:', req.body.idiomsWords); // デバッグ用ログ
-    console.log('Received sentences:', req.body.sentences); // デバッグ用ログ
-    console.log('Received sentenceWords:', req.body.sentenceWords); // デバッグ用ログ
+    console.log('Received idiomsWords:', idiomsWords); // デバッグ用ログ
+    console.log('Received sentences:', sentences); // デバッグ用ログ
+    console.log('Received sentenceWords:', sentenceWords); // デバッグ用ログ
 
     if (!Array.isArray(idiomsWords) || !Array.isArray(sentences) || !Array.isArray(sentenceWords)) {
       return res.status(400).send('Invalid data format');
@@ -205,11 +208,8 @@ app.post('/api/save-translation', async (req, res) => {
     };
 
     const idiomsWordsValid = idiomsWords.every(item => validateItem(item, ['id', 'text', 'type', 'meaning_ja', 'created_at', 'updated_at']));
-    console.log(idiomsWordsValid);
     const sentencesValid = sentences.every(sentence => validateItem(sentence, ['id', 'text', 'translation_ja', 'created_at', 'updated_at']));
-    console.log(sentencesValid);
     const sentenceWordsValid = sentenceWords.every(item => validateItem(item, ['id', 'sentence_id', 'idiom_word_id', 'created_at', 'updated_at']));
-    console.log(sentenceWordsValid);
 
     if (!idiomsWordsValid || !sentencesValid || !sentenceWordsValid) {
       return res.status(400).send('Data format is incorrect');
@@ -229,10 +229,11 @@ app.post('/api/save-translation', async (req, res) => {
 
     res.status(200).json({ message: 'データが正常に保存されました' });
   } catch (error) {
-    console.error('Error saving translation data:', error); // エラーログ
+    console.error('Error saving translation data:', error);
     res.status(500).send('データの保存に失敗しました。');
   }
 });
+
 
 // 例: イディオム/単語データ保存エンドポイント
 app.post('/api/idioms_words', async (req, res) => {
