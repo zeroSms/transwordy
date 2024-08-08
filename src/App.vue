@@ -15,26 +15,27 @@ export default {
 </script>
 
 <style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
-}
-
 nav {
-  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+  background-color: #f8f9fa;
+  padding: 10px;
 }
 
 nav a {
   margin: 0 15px;
   text-decoration: none;
   color: #42b983;
+  font-weight: bold;
 }
 
 nav a:hover {
   text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  nav {
+    flex-direction: column;
+  }
 }
 </style>

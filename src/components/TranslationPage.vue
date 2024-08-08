@@ -202,7 +202,8 @@ export default {
       text: '',
       sourceLang: 'en',
       targetLang: 'ja',
-      translation: null
+      translation: null,
+      user_id: 1 // 仮にユーザーIDを1と設定
     };
   },
   computed: {
@@ -284,8 +285,8 @@ export default {
               }
             }
           ]
-        }
-      `;
+        }`
+      ;
 
 
       const prompt = `**英文**: ${this.text}`;
@@ -333,10 +334,10 @@ export default {
                 id: idiomWordId++, // ユニークなIDを生成
                 text: key,
                 type: sentenceObj['idiom/word'][key].type,
-                pos: sentenceObj['idiom/word'][key].pos, // pos フィールドが必要な場合
                 meaning_ja: sentenceObj['idiom/word'][key].ja,
                 created_at: now,
-                updated_at: now
+                updated_at: now,
+                user_id: this.user_id // ユーザーIDを追加
               }));
               idiomsWords = idiomsWords.concat(idiomWords);
 
@@ -346,7 +347,8 @@ export default {
                 text: sentenceObj.sentence, // 元のデータから取得
                 translation_ja: sentenceObj.ja, // 日本語訳
                 created_at: now,
-                updated_at: now
+                updated_at: now,
+                user_id: this.user_id // ユーザーIDを追加
               };
               sentencesList.push(sentenceEntry);
 
@@ -356,7 +358,8 @@ export default {
                 sentence_id: sentenceEntry.id,
                 idiom_word_id: iw.id,
                 created_at: now,
-                updated_at: now
+                updated_at: now,
+                user_id: this.user_id // ユーザーIDを追加
               }));
               sentenceWords = sentenceWords.concat(sentenceWordEntries);
             } else {
@@ -370,6 +373,7 @@ export default {
 
           // 新しい translation オブジェクト
           this.translation = {
+            user_id: this.user_id,
             idiomsWords,
             sentences: sentencesList,
             sentenceWords
@@ -412,5 +416,4 @@ export default {
     }
   }
 };
-
 </script>

@@ -1,5 +1,3 @@
-// src/components/UserRegistration.vue
-
 <template>
   <div class="registration">
     <h1>ユーザー登録</h1>
@@ -13,6 +11,7 @@
         <input type="password" id="password" v-model="password" required />
       </div>
       <button type="submit">登録</button>
+      <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
     </form>
   </div>
 </template>
@@ -23,11 +22,14 @@ export default {
   data() {
     return {
       username: '',
-      password: ''
+      password: '',
+      errorMessage: '' // エラーメッセージ用のデータプロパティ
     };
   },
   methods: {
     async registerUser() {
+      this.errorMessage = ''; // エラーメッセージのリセット
+
       try {
         const response = await fetch('http://localhost:3000/api/users', {
           method: 'POST',
@@ -48,8 +50,7 @@ export default {
         await response.json();
         this.$router.push('/translation'); // 翻訳ページに遷移
       } catch (error) {
-        console.error(error);
-        alert(error.message || 'エラーが発生しました');
+        this.errorMessage = error.message || 'エラーが発生しました'; // エラーメッセージの設定
       }
     }
   }
@@ -57,7 +58,7 @@ export default {
 </script>
 
 <style scoped>
-.user-registration {
+.registration {
   max-width: 400px;
   margin: 0 auto;
   padding: 1rem;
@@ -65,26 +66,26 @@ export default {
   border-radius: 5px;
 }
 
-.user-registration h1 {
+.registration h1 {
   text-align: center;
 }
 
-.user-registration form div {
+.registration form div {
   margin-bottom: 1rem;
 }
 
-.user-registration label {
+.registration label {
   display: block;
   margin-bottom: 0.5rem;
 }
 
-.user-registration input {
+.registration input {
   width: 100%;
   padding: 0.5rem;
   box-sizing: border-box;
 }
 
-.user-registration button {
+.registration button {
   width: 100%;
   padding: 0.5rem;
   background-color: #007bff;
@@ -94,7 +95,12 @@ export default {
   cursor: pointer;
 }
 
-.user-registration button:hover {
+.registration button:hover {
   background-color: #0056b3;
+}
+
+.error-message {
+  color: red;
+  text-align: center;
 }
 </style>

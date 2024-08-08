@@ -1,12 +1,16 @@
 // 必要なモジュールをインポート
+require('dotenv').config(); // 環境変数の読み込み
 const express = require('express');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 
-// データベースファイルのパスを指定
-const dbPath = path.join(__dirname, 'data', 'translation.db');
+// データベースファイルのパスを環境変数から取得
+const dbPath = path.resolve(__dirname, process.env.DB_PATH);
+
+// その他の設定
+const saltRounds = parseInt(process.env.SALT_ROUNDS, 10); // 環境変数から取得
 
 // データベース接続を取得する関数
 const getDbConnection = () => {
@@ -103,8 +107,6 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 app.use(cors());
 
-const saltRounds = 10; // ハッシュ化の強度
-
 // ユーザー登録エンドポイント
 app.post('/api/users', async (req, res) => {
   try {
@@ -156,10 +158,11 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// SQLite データベースからイディオム/単語データを取得するエンドポイント
+// ユーザーIDを持つイディオム/単語データの取得エンドポイント
 app.get('/api/idioms_words', async (req, res) => {
   try {
-    const idiomsWords = await getQuery('SELECT * FROM idioms_words');
+    const { user_id } = req.query;
+    const idiomsWords = await getQuery('SELECT * FROM idioms_words WHERE user_id = ?', [user_id]);
     res.json(idiomsWords);
   } catch (error) {
     console.error('Error reading idioms/words data:', error);
@@ -167,10 +170,11 @@ app.get('/api/idioms_words', async (req, res) => {
   }
 });
 
-// SQLite データベースから例文データを取得するエンドポイント
+// ユーザーIDを持つ例文データの取得エンドポイント
 app.get('/api/sentences', async (req, res) => {
   try {
-    const sentences = await getQuery('SELECT * FROM sentences');
+    const { user_id } = req.query;
+    const sentences = await getQuery('SELECT * FROM sentences WHERE user_id = ?', [user_id]);
     res.json(sentences);
   } catch (error) {
     console.error('Error reading sentences data:', error);
@@ -178,10 +182,11 @@ app.get('/api/sentences', async (req, res) => {
   }
 });
 
-// 例文内のイディオムと単語データを取得するエンドポイント
+// ユーザーIDを持つ例文内のイディオムと単語データの取得エンドポイント
 app.get('/api/sentence_words', async (req, res) => {
   try {
-    const sentenceWords = await getQuery('SELECT * FROM sentence_words');
+    const { user_id } = req.query;
+    const sentenceWords = await getQuery('SELECT * FROM sentence_words WHERE user_id = ?', [user_id]);
     res.json(sentenceWords);
   } catch (error) {
     console.error('Error reading sentence_words data:', error);
@@ -213,10 +218,11 @@ app.get('/api/user_progress', async (req, res) => {
 
 // 翻訳データの保存エンドポイント
 app.post('/api/save-translation', async (req, res) => {
+  console.log('Received data:', req.body);
   try {
-    const { idiomsWords, sentences, sentenceWords } = req.body;
+    const { user_id, idiomsWords, sentences, sentenceWords } = req.body;
 
-    if (!Array.isArray(idiomsWords) || !Array.isArray(sentences) || !Array.isArray(sentenceWords)) {
+    if (!user_id || !Array.isArray(idiomsWords) || !Array.isArray(sentences) || !Array.isArray(sentenceWords)) {
       return res.status(400).send('Invalid data format');
     }
 
@@ -240,55 +246,52 @@ app.post('/api/save-translation', async (req, res) => {
 
       Promise.all([
         ...idiomsWords.map(async item => {
-          const existingItem = await getQueryWithRetry('SELECT * FROM idioms_words WHERE text = ? AND type = ?', [item.text, item.type]);
+          const existingItem = await getQueryWithRetry('SELECT * FROM idioms_words WHERE text = ? AND type = ? AND user_id = ?', [item.text, item.type, user_id]);
           if (existingItem.length > 0) {
             await runQueryWithRetry('UPDATE idioms_words SET count = count + 1, updated_at = ? WHERE id = ?', [now, existingItem[0].id]);
           } else {
             await runQueryWithRetry(
-              'INSERT INTO idioms_words (text, type, meaning_ja, created_at, updated_at, count) VALUES (?, ?, ?, ?, ?, 1)',
-              [item.text, item.type, item.meaning_ja, now, now]
+              'INSERT INTO idioms_words (text, type, meaning_ja, created_at, updated_at, count, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              [item.text, item.type, item.meaning_ja, now, now, 1, user_id]
             );
           }
         }),
-        ...sentences.map(async item => {
-          const existingItem = await getQueryWithRetry('SELECT * FROM sentences WHERE text = ?', [item.text]);
-          if (existingItem.length > 0) {
-            await runQueryWithRetry('UPDATE sentences SET count = count + 1, updated_at = ? WHERE id = ?', [now, existingItem[0].id]);
+        ...sentences.map(async sentence => {
+          const existingSentence = await getQueryWithRetry('SELECT * FROM sentences WHERE text = ? AND user_id = ?', [sentence.text, user_id]);
+          if (existingSentence.length > 0) {
+            await runQueryWithRetry('UPDATE sentences SET count = count + 1, updated_at = ? WHERE id = ?', [now, existingSentence[0].id]);
           } else {
             await runQueryWithRetry(
-              'INSERT INTO sentences (text, translation_ja, created_at, updated_at, count) VALUES (?, ?, ?, ?, 1)',
-              [item.text, item.translation_ja, now, now]
+              'INSERT INTO sentences (text, translation_ja, created_at, updated_at, count, user_id) VALUES (?, ?, ?, ?, ?, ?)',
+              [sentence.text, sentence.translation_ja, now, now, 1, user_id]
             );
           }
         }),
         ...sentenceWords.map(async item => {
-          const existingItem = await getQueryWithRetry('SELECT * FROM sentence_words WHERE sentence_id = ? AND idiom_word_id = ?', [item.sentence_id, item.idiom_word_id]);
-          if (existingItem.length > 0) {
-            await runQueryWithRetry('UPDATE sentence_words SET count = count + 1, updated_at = ? WHERE id = ?', [now, existingItem[0].id]);
+          const existingPair = await getQueryWithRetry('SELECT * FROM sentence_words WHERE sentence_id = ? AND idiom_word_id = ? AND user_id = ?', [item.sentence_id, item.idiom_word_id, user_id]);
+          if (existingPair.length > 0) {
+            await runQueryWithRetry('UPDATE sentence_words SET updated_at = ? WHERE sentence_id = ? AND idiom_word_id = ? AND user_id = ?', [now, item.sentence_id, item.idiom_word_id, user_id]);
           } else {
             await runQueryWithRetry(
-              'INSERT INTO sentence_words (sentence_id, idiom_word_id, created_at, updated_at, count) VALUES (?, ?, ?, ?, 1)',
-              [item.sentence_id, item.idiom_word_id, now, now]
+              'INSERT INTO sentence_words (sentence_id, idiom_word_id, created_at, updated_at, user_id) VALUES (?, ?, ?, ?, ?)',
+              [item.sentence_id, item.idiom_word_id, now, now, user_id]
             );
           }
         })
-      ])
-        .then(() => {
-          db.run('COMMIT');
-          res.status(200).send('Translation data saved successfully.');
-        })
-        .catch((error) => {
-          db.run('ROLLBACK');
-          console.error('Error saving translation data:', error);
-          res.status(500).send('Failed to save translation data.');
-        })
-        .finally(() => {
-          db.close();
-        });
+      ]).then(() => {
+        db.run('COMMIT');
+        res.status(201).send('Translation data saved successfully');
+      }).catch(error => {
+        db.run('ROLLBACK');
+        console.error('Error saving translation data:', error);
+        res.status(500).send('Error saving translation data');
+      }).finally(() => {
+        db.close();
+      });
     });
   } catch (error) {
     console.error('Error saving translation data:', error);
-    res.status(500).send('Failed to save translation data.');
+    res.status(500).send('Translation data saving failed');
   }
 });
 
