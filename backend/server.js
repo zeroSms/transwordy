@@ -148,7 +148,8 @@ app.post('/api/login', async (req, res) => {
 
     const user = users[0];
     if (await bcrypt.compare(password, user.password)) {
-      res.status(200).json({ message: 'ログイン成功' });
+      // ログイン成功時に user_id をレスポンスとして返す
+      res.status(200).json({ user_id: user.id, message: 'ログイン成功' });
     } else {
       res.status(401).json({ error: 'ユーザー名またはパスワードが間違っています' });
     }
@@ -157,6 +158,7 @@ app.post('/api/login', async (req, res) => {
     res.status(500).send('ログイン処理に失敗しました。');
   }
 });
+
 
 // ユーザーIDを持つイディオム/単語データの取得エンドポイント
 app.get('/api/idioms_words', async (req, res) => {

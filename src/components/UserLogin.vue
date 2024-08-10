@@ -47,7 +47,10 @@ export default {
           throw new Error(error.error || 'ログインに失敗しました');
         }
 
-        await response.json();
+        const data = await response.json();
+        console.log("Login response data:", data); // デバッグ用ログ出力
+        localStorage.setItem('user_id', data.user_id); // user_idをローカルストレージに保存
+
         this.$router.push('/translation'); // 翻訳ページに遷移
       } catch (error) {
         this.errorMessage = error.message || 'エラーが発生しました'; // エラーメッセージの設定
