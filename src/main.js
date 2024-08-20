@@ -4,11 +4,15 @@ import router from './router';
 
 const app = createApp(App);
 
-// ルーターをアプリケーションに追加
-app.use(router);
+try {
+  // ルーターをアプリケーションに追加
+  app.use(router);
 
-// アプリケーションをマウント
-app.mount('#app');
+  // アプリケーションをマウント
+  app.mount('#app');
 
-// コンソールログで確認
-console.log('App mounted and router initialized');
+  // コンソールログで確認
+  console.log('App mounted and router initialized');
+} catch (error) {
+  console.error('Error during app initialization:', error);
+}

@@ -1,11 +1,103 @@
-// backend/server.js
-
 // 必要なモジュールをインポート
+require('dotenv').config(); // 環境変数の読み込み
 const express = require('express');
-const fs = require('fs');
 const path = require('path');
-const csv = require('csv-parser');
-const { stringify } = require('csv-stringify');
+const sqlite3 = require('sqlite3').verbose();
+const cors = require('cors');
+const bcrypt = require('bcrypt');
+
+// データベースファイルのパスを環境変数から取得
+const dbPath = path.resolve(__dirname, process.env.DB_PATH);
+
+// その他の設定
+const saltRounds = parseInt(process.env.SALT_ROUNDS, 10); // 環境変数から取得
+
+// データベース接続を取得する関数
+const getDbConnection = () => {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(dbPath, (err) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(db);
+      }
+    });
+  });
+};
+
+// クエリを実行する関数
+const runQuery = (query, params = []) => {
+  return new Promise((resolve, reject) => {
+    getDbConnection().then(db => {
+      db.run(query, params, function (err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(this);
+        }
+        db.close();
+      });
+    }).catch(reject);
+  });
+};
+
+// クエリの結果を取得する関数
+const getQuery = (query, params = []) => {
+  return new Promise((resolve, reject) => {
+    getDbConnection().then(db => {
+      db.all(query, params, (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows);
+        }
+        db.close();
+      });
+    }).catch(reject);
+  });
+};
+
+// 再試行制限と遅延の設定
+const retryLimit = 5;  // 再試行回数の制限
+const retryDelay = 100;  // 再試行間の遅延 (ミリ秒)
+
+// 再試行付きでクエリを実行する関数
+const runQueryWithRetry = async (query, params = [], retries = retryLimit) => {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await runQuery(query, params);
+    } catch (error) {
+      if (error.code === 'SQLITE_BUSY') {
+        if (attempt < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        } else {
+          throw error;
+        }
+      } else {
+        throw error;
+      }
+    }
+  }
+};
+
+// 再試行付きでクエリの結果を取得する関数
+const getQueryWithRetry = async (query, params = [], retries = retryLimit) => {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await getQuery(query, params);
+    } catch (error) {
+      if (error.code === 'SQLITE_BUSY') {
+        if (attempt < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        } else {
+          throw error;
+        }
+      } else {
+        throw error;
+      }
+    }
+  }
+};
 
 // Expressアプリケーションを作成
 const app = express();
@@ -13,101 +105,33 @@ const port = process.env.PORT || 3000;
 
 // JSON解析用ミドルウェア
 app.use(express.json());
-
-// CORS設定
-const cors = require('cors');
 app.use(cors());
-
-// JSONデータファイルへのパス
-const dataPath = path.join(__dirname, 'data');
-
-// 既存のデータを読み込む関数
-const readCsvData = (filePath) => {
-  return new Promise((resolve, reject) => {
-    const results = [];
-    // ファイルパスの組み立て
-    fs.createReadStream(filePath)
-      .pipe(csv())
-      .on('data', (data) => results.push(data))
-      .on('end', () => resolve(results))
-      .on('error', (err) => {
-        console.error(`Error reading CSV file ${fileName}:`, err);
-        reject(new Error('データの読み込みに失敗しました'));
-      });
-  });
-};
-
-// CSVファイルにデータを追記する関数
-async function writeCsvData(filename, newData, headers) {
-  const filePath = path.join(__dirname, 'data', filename);
-
-  try {
-    let existingData = [];
-    if (fs.existsSync(filePath)) {
-      // 既存のデータがある場合は読み込む
-      existingData = await readCsvData(filePath);
-    }
-
-    // 既存のデータに新しいデータを追加
-    const updatedData = [...existingData, ...newData];
-
-    // CSVファイルにデータを書き込む
-    stringify(updatedData, { header: true, columns: headers }, (err, output) => {
-      if (err) {
-        console.error(`Error writing CSV file ${filename}:`, err);
-        throw new Error('データの書き込みに失敗しました');
-      }
-      fs.writeFileSync(filePath, output);
-    });
-  } catch (err) {
-    console.error(`Error processing CSV file ${filename}:`, err);
-    throw new Error('データの処理に失敗しました');
-  }
-}
-
-
-const bcrypt = require('bcrypt');
-const saltRounds = 10; // ハッシュ化の強度
 
 // ユーザー登録エンドポイント
 app.post('/api/users', async (req, res) => {
   try {
     const newUser = req.body;
 
-    // パスワードが提供されているか確認
     if (!newUser.password) {
       return res.status(400).json({ error: 'パスワードが提供されていません' });
     }
 
-    const users = await readCsvData('users.csv');
+    const users = await getQuery('SELECT * FROM users WHERE username = ?', [newUser.username]);
 
-    // ユーザー名の重複チェック
-    if (users.some(user => user.username === newUser.username)) {
+    if (users.length > 0) {
       return res.status(400).json({ error: 'このユーザー名は既に使用されています' });
     }
 
-    // パスワードをハッシュ化
     const hashedPassword = await bcrypt.hash(newUser.password, saltRounds);
     newUser.password = hashedPassword;
 
-    // ID を設定
-    const newId = users.length ? parseInt(users[users.length - 1].id) + 1 : 1;
-    newUser.id = newId;
+    const now = new Date().toISOString();
 
-    // 日時を追加
-    newUser.created_at = new Date().toISOString();
-    newUser.updated_at = new Date().toISOString();
+    await runQuery('INSERT INTO users (username, password, created_at, updated_at) VALUES (?, ?, ?, ?)', [newUser.username, newUser.password, now, now]);
 
-    // ユーザー情報を追加
-    users.push(newUser);
-
-    // データを CSV ファイルに書き込む
-    await writeCsvData('users.csv', users, ['id', 'username', 'password', 'created_at', 'updated_at']);
-
-    // レスポンスを送信
     res.status(201).json(newUser);
   } catch (error) {
-    console.error('Error adding user:', error); // エラーログ
+    console.error('Error adding user:', error);
     res.status(500).send('データの追加に失敗しました。');
   }
 });
@@ -116,54 +140,58 @@ app.post('/api/users', async (req, res) => {
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const users = await readCsvData('users.csv');
+    const users = await getQuery('SELECT * FROM users WHERE username = ?', [username]);
 
-    // ユーザーを検索
-    const user = users.find(u => u.username === username);
+    if (users.length === 0) {
+      return res.status(401).json({ error: 'ユーザー名またはパスワードが間違っています' });
+    }
 
-    console.log(user.password);
-    console.log(username, password);
-
-    if (user && await bcrypt.compare(password, user.password)) {
-      res.status(200).json({ message: 'ログイン成功' });
+    const user = users[0];
+    if (await bcrypt.compare(password, user.password)) {
+      // ログイン成功時に user_id をレスポンスとして返す
+      res.status(200).json({ user_id: user.id, message: 'ログイン成功' });
     } else {
       res.status(401).json({ error: 'ユーザー名またはパスワードが間違っています' });
     }
   } catch (error) {
-    console.error('Error during login:', error); // エラーログ
+    console.error('Error during login:', error);
     res.status(500).send('ログイン処理に失敗しました。');
   }
 });
 
-// イディオム/単語データの取得エンドポイント
+
+// ユーザーIDを持つイディオム/単語データの取得エンドポイント
 app.get('/api/idioms_words', async (req, res) => {
   try {
-    const idiomsWords = await readCsvData('idioms_words.csv'); // CSV 形式の場合
+    const { user_id } = req.query;
+    const idiomsWords = await getQuery('SELECT * FROM idioms_words WHERE user_id = ?', [user_id]);
     res.json(idiomsWords);
   } catch (error) {
-    console.error('Error reading idioms/words data:', error); // エラーログ
+    console.error('Error reading idioms/words data:', error);
     res.status(500).send('データの読み込みに失敗しました。');
   }
 });
 
-// 例文データの取得エンドポイント
+// ユーザーIDを持つ例文データの取得エンドポイント
 app.get('/api/sentences', async (req, res) => {
   try {
-    const sentences = await readCsvData('sentences.csv'); // CSV 形式の場合
+    const { user_id } = req.query;
+    const sentences = await getQuery('SELECT * FROM sentences WHERE user_id = ?', [user_id]);
     res.json(sentences);
   } catch (error) {
-    console.error('Error reading sentences data:', error); // エラーログ
+    console.error('Error reading sentences data:', error);
     res.status(500).send('データの読み込みに失敗しました。');
   }
 });
 
-// 例文内のイディオムと単語データの取得エンドポイント
+// ユーザーIDを持つ例文内のイディオムと単語データの取得エンドポイント
 app.get('/api/sentence_words', async (req, res) => {
   try {
-    const sentenceWords = await readCsvData('sentence_words.csv'); // CSV 形式の場合
+    const { user_id } = req.query;
+    const sentenceWords = await getQuery('SELECT * FROM sentence_words WHERE user_id = ?', [user_id]);
     res.json(sentenceWords);
   } catch (error) {
-    console.error('Error reading sentence_words data:', error); // エラーログ
+    console.error('Error reading sentence_words data:', error);
     res.status(500).send('データの読み込みに失敗しました。');
   }
 });
@@ -171,10 +199,10 @@ app.get('/api/sentence_words', async (req, res) => {
 // ユーザー学習データの取得エンドポイント
 app.get('/api/user_learning_data', async (req, res) => {
   try {
-    const userLearningData = await readCsvData('user_learning_data.csv'); // CSV 形式の場合
+    const userLearningData = await getQuery('SELECT * FROM user_learning_data');
     res.json(userLearningData);
   } catch (error) {
-    console.error('Error reading user_learning_data:', error); // エラーログ
+    console.error('Error reading user_learning_data:', error);
     res.status(500).send('データの読み込みに失敗しました。');
   }
 });
@@ -182,139 +210,94 @@ app.get('/api/user_learning_data', async (req, res) => {
 // ユーザー進捗データの取得エンドポイント
 app.get('/api/user_progress', async (req, res) => {
   try {
-    const userProgress = await readCsvData('user_progress.csv'); // CSV 形式の場合
+    const userProgress = await getQuery('SELECT * FROM user_progress');
     res.json(userProgress);
   } catch (error) {
-    console.error('Error reading user_progress:', error); // エラーログ
+    console.error('Error reading user_progress:', error);
     res.status(500).send('データの読み込みに失敗しました。');
   }
 });
 
-// 翻訳データ保存エンドポイント
+// 翻訳データの保存エンドポイント
 app.post('/api/save-translation', async (req, res) => {
+  console.log('Received data:', req.body);
   try {
-    const { idiomsWords, sentences, sentenceWords } = req.body;
-    console.log('Received idiomsWords:', idiomsWords); // デバッグ用ログ
-    console.log('Received sentences:', sentences); // デバッグ用ログ
-    console.log('Received sentenceWords:', sentenceWords); // デバッグ用ログ
+    const { user_id, idiomsWords, sentences, sentenceWords } = req.body;
 
-    if (!Array.isArray(idiomsWords) || !Array.isArray(sentences) || !Array.isArray(sentenceWords)) {
+    if (!user_id || !Array.isArray(idiomsWords) || !Array.isArray(sentences) || !Array.isArray(sentenceWords)) {
       return res.status(400).send('Invalid data format');
     }
 
-    // データの整合性チェック
     const validateItem = (item, requiredFields) => {
       return requiredFields.every(field => item.hasOwnProperty(field));
     };
 
-    const idiomsWordsValid = idiomsWords.every(item => validateItem(item, ['id', 'text', 'type', 'meaning_ja', 'created_at', 'updated_at']));
-    const sentencesValid = sentences.every(sentence => validateItem(sentence, ['id', 'text', 'translation_ja', 'created_at', 'updated_at']));
-    const sentenceWordsValid = sentenceWords.every(item => validateItem(item, ['id', 'sentence_id', 'idiom_word_id', 'created_at', 'updated_at']));
+    const idiomsWordsValid = idiomsWords.every(item => validateItem(item, ['text', 'type', 'meaning_ja']));
+    const sentencesValid = sentences.every(sentence => validateItem(sentence, ['text', 'translation_ja']));
+    const sentenceWordsValid = sentenceWords.every(item => validateItem(item, ['sentence_id', 'idiom_word_id']));
 
     if (!idiomsWordsValid || !sentencesValid || !sentenceWordsValid) {
       return res.status(400).send('Data format is incorrect');
     }
 
-    // CSVファイルにデータを保存
-    try {
-      await Promise.all([
-        writeCsvData('idioms_words.csv', idiomsWords, ['id', 'text', 'type', 'meaning_ja', 'created_at', 'updated_at']),
-        writeCsvData('sentences.csv', sentences, ['id', 'text', 'translation_ja', 'created_at', 'updated_at']),
-        writeCsvData('sentence_words.csv', sentenceWords, ['id', 'sentence_id', 'idiom_word_id', 'created_at', 'updated_at'])
-      ]);
-    } catch (writeError) {
-      console.error('Error writing CSV files:', writeError);
-      return res.status(500).send('Failed to save data to CSV files.');
-    }
+    const db = await getDbConnection();
+    const now = new Date().toISOString();
 
-    res.status(200).json({ message: 'データが正常に保存されました' });
+    db.serialize(() => {
+      db.run('BEGIN TRANSACTION');
+
+      Promise.all([
+        ...idiomsWords.map(async item => {
+          const existingItem = await getQueryWithRetry('SELECT * FROM idioms_words WHERE text = ? AND type = ? AND user_id = ?', [item.text, item.type, user_id]);
+          if (existingItem.length > 0) {
+            await runQueryWithRetry('UPDATE idioms_words SET count = count + 1, updated_at = ? WHERE id = ?', [now, existingItem[0].id]);
+          } else {
+            await runQueryWithRetry(
+              'INSERT INTO idioms_words (text, type, meaning_ja, created_at, updated_at, count, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              [item.text, item.type, item.meaning_ja, now, now, 1, user_id]
+            );
+          }
+        }),
+        ...sentences.map(async sentence => {
+          const existingSentence = await getQueryWithRetry('SELECT * FROM sentences WHERE text = ? AND user_id = ?', [sentence.text, user_id]);
+          if (existingSentence.length > 0) {
+            await runQueryWithRetry('UPDATE sentences SET count = count + 1, updated_at = ? WHERE id = ?', [now, existingSentence[0].id]);
+          } else {
+            await runQueryWithRetry(
+              'INSERT INTO sentences (text, translation_ja, created_at, updated_at, count, user_id) VALUES (?, ?, ?, ?, ?, ?)',
+              [sentence.text, sentence.translation_ja, now, now, 1, user_id]
+            );
+          }
+        }),
+        ...sentenceWords.map(async item => {
+          const existingPair = await getQueryWithRetry('SELECT * FROM sentence_words WHERE sentence_id = ? AND idiom_word_id = ? AND user_id = ?', [item.sentence_id, item.idiom_word_id, user_id]);
+          if (existingPair.length > 0) {
+            await runQueryWithRetry('UPDATE sentence_words SET updated_at = ? WHERE sentence_id = ? AND idiom_word_id = ? AND user_id = ?', [now, item.sentence_id, item.idiom_word_id, user_id]);
+          } else {
+            await runQueryWithRetry(
+              'INSERT INTO sentence_words (sentence_id, idiom_word_id, created_at, updated_at, user_id) VALUES (?, ?, ?, ?, ?)',
+              [item.sentence_id, item.idiom_word_id, now, now, user_id]
+            );
+          }
+        })
+      ]).then(() => {
+        db.run('COMMIT');
+        res.status(201).send('Translation data saved successfully');
+      }).catch(error => {
+        db.run('ROLLBACK');
+        console.error('Error saving translation data:', error);
+        res.status(500).send('Error saving translation data');
+      }).finally(() => {
+        db.close();
+      });
+    });
   } catch (error) {
     console.error('Error saving translation data:', error);
-    res.status(500).send('データの保存に失敗しました。');
+    res.status(500).send('Translation data saving failed');
   }
 });
-
-
-// 例: イディオム/単語データ保存エンドポイント
-app.post('/api/idioms_words', async (req, res) => {
-  try {
-    const idiomsWords = req.body;
-
-    // データのバリデーション
-    if (!Array.isArray(idiomsWords) || idiomsWords.some(item => !item.id || !item.text || !item.type || !item.pos || !item.meaning_ja)) {
-      return res.status(400).send('Invalid data format');
-    }
-
-    const now = new Date().toISOString();
-    idiomsWords.forEach(item => {
-      item.created_at = now;
-      item.updated_at = now;
-    });
-
-    // CSVファイルにデータを保存
-    await writeCsvData('idioms_words.csv', idiomsWords, ['id', 'text', 'type', 'pos', 'meaning_ja', 'created_at', 'updated_at']);
-
-    res.status(200).json({ message: 'データが正常に保存されました' });
-  } catch (error) {
-    console.error('Error saving idioms/words data:', error); // エラーログ
-    res.status(500).send('データの保存に失敗しました。');
-  }
-});
-
-// 例文内のイディオム/単語データ保存エンドポイント
-app.post('/api/sentence_words', async (req, res) => {
-  try {
-    const sentenceWords = req.body;
-
-    // データのバリデーション
-    if (!Array.isArray(sentenceWords) || sentenceWords.some(item => !item.id || !item.sentence_id || !item.idiom_word_id)) {
-      return res.status(400).send('Invalid data format');
-    }
-
-    const now = new Date().toISOString();
-    sentenceWords.forEach(item => {
-      item.created_at = now;
-      item.updated_at = now;
-    });
-
-    // CSVファイルにデータを保存
-    await writeCsvData('sentence_words.csv', sentenceWords, ['id', 'sentence_id', 'idiom_word_id', 'created_at', 'updated_at']);
-
-    res.status(200).json({ message: 'データが正常に保存されました' });
-  } catch (error) {
-    console.error('Error saving sentence_words data:', error); // エラーログ
-    res.status(500).send('データの保存に失敗しました。');
-  }
-});
-
-// 例文データ保存エンドポイント
-app.post('/api/sentences', async (req, res) => {
-  try {
-    const sentences = req.body;
-
-    // データのバリデーション
-    if (!Array.isArray(sentences) || sentences.some(sentence => !sentence.id || !sentence.text || !sentence.translation_ja)) {
-      return res.status(400).send('Invalid data format');
-    }
-
-    const now = new Date().toISOString();
-    sentences.forEach(sentence => {
-      sentence.created_at = now;
-      sentence.updated_at = now;
-    });
-
-    // CSVファイルにデータを保存
-    await writeCsvData('sentences.csv', sentences, ['id', 'text', 'translation_ja', 'created_at', 'updated_at']);
-
-    res.status(200).json({ message: 'データが正常に保存されました' });
-  } catch (error) {
-    console.error('Error saving sentences data:', error); // エラーログ
-    res.status(500).send('データの保存に失敗しました。');
-  }
-});
-
 
 // サーバーの起動
 app.listen(port, () => {
-  console.log(`サーバーはポート ${port} で動作しています`);
+  console.log(`Server is running on port ${port}`);
 });

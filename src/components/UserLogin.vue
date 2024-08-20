@@ -1,5 +1,3 @@
-// src/components/UserLogin.vue
-
 <template>
   <div class="login">
     <h1>ログイン</h1>
@@ -13,22 +11,25 @@
         <input type="password" id="password" v-model="password" required />
       </div>
       <button type="submit">ログイン</button>
+      <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
     </form>
   </div>
 </template>
 
 <script>
-
 export default {
   name: 'UserLogin',
   data() {
     return {
       username: '',
-      password: ''
+      password: '',
+      errorMessage: '' // エラーメッセージ用のデータプロパティ
     };
   },
   methods: {
     async loginUser() {
+      this.errorMessage = ''; // エラーメッセージのリセット
+
       try {
         const response = await fetch('http://localhost:3000/api/login', {
           method: 'POST',
@@ -46,11 +47,13 @@ export default {
           throw new Error(error.error || 'ログインに失敗しました');
         }
 
-        await response.json();
+        const data = await response.json();
+        console.log("Login response data:", data); // デバッグ用ログ出力
+        localStorage.setItem('user_id', data.user_id); // user_idをローカルストレージに保存
+
         this.$router.push('/translation'); // 翻訳ページに遷移
       } catch (error) {
-        console.error(error);
-        alert(error.message || 'エラーが発生しました');
+        this.errorMessage = error.message || 'エラーが発生しました'; // エラーメッセージの設定
       }
     }
   }
@@ -97,5 +100,10 @@ export default {
 
 .login button:hover {
   background-color: #0056b3;
+}
+
+.error-message {
+  color: red;
+  text-align: center;
 }
 </style>
