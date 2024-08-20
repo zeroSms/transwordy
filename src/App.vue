@@ -3,6 +3,8 @@
     <nav>
       <router-link to="/registration">ユーザー登録</router-link>
       <router-link to="/login">ログイン</router-link>
+      <router-link to="/translation">翻訳ページ</router-link>
+      <router-link to="/outputCsv">CSV 出力</router-link>
     </nav>
     <router-view></router-view>
   </div>

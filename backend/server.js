@@ -164,10 +164,17 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/idioms_words', async (req, res) => {
   try {
     const { user_id } = req.query;
-    const idiomsWords = await getQuery('SELECT * FROM idioms_words WHERE user_id = ?', [user_id]);
+    const query = `
+      SELECT iw.text AS idiom_word, iw.meaning_ja, s.text AS sentence, s.translation_ja
+      FROM idioms_words iw
+      LEFT JOIN sentence_words sw ON iw.id = sw.idiom_word_id
+      LEFT JOIN sentences s ON sw.sentence_id = s.id
+      WHERE iw.user_id = ?
+    `;
+    const idiomsWords = await getQuery(query, [user_id]);
     res.json(idiomsWords);
   } catch (error) {
-    console.error('Error reading idioms/words data:', error);
+    console.error('Error reading idioms/words and sentences data:', error);
     res.status(500).send('データの読み込みに失敗しました。');
   }
 });
